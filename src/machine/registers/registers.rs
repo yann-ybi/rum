@@ -12,11 +12,11 @@ impl CPU {
         }
     }
     // write a value on a register
-    pub fn write(&mut self, val: u32, register: Option<u32>) {
-        self.registers[register.unwrap() as usize] = val
+    pub fn write(&mut self, val: u32, register: u32) {
+        self.registers[register as usize] = val
     }
     // return a value from a register 
-    pub fn read(&self, register: Option<u32>) -> u32 {
-        self.registers[register.unwrap() as usize]
+    pub fn read(&self, register: u32) -> u32 {
+        self.registers[register as usize]
     }
 }

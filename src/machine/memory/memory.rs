@@ -12,10 +12,13 @@ impl Memory {
     pub fn new(instructions: Vec<u32>) -> Self {
 
         Memory {
-            
             segs: vec![instructions],
             unmapped_segs: VecDeque::new()
         }
+    }
+    pub fn get_i(&mut self, offset: u32) -> u32 {
+        self.segs[0][offset as usize]
+
     }
     /// return a word from the segmented memory based on its id and offset
     /// return None if no word found at that location

@@ -6,6 +6,7 @@ use crate::machine::registers::registers::{CPU};
 use crate::machine::memory::memory::{Memory};
 use crate::machine::dinst::{Dinst};
 
+
 /// Returns true iff the unsigned value `n` fits into `width` unsigned bits.
 /// 
 /// # Arguments:
@@ -22,7 +23,9 @@ pub fn fitsu(n: u64, width: u64) -> bool {
 pub struct UM {
     pub registers: CPU,
     pub memory: Memory,
-    pub prog_counter: usize
+    pub prog_counter: usize,
+    pub dinst: Dinst
+    
 }
 
 impl  UM {
@@ -31,136 +34,137 @@ impl  UM {
         UM {
             registers: CPU::new(),
             memory: Memory::new(instructions),
-            prog_counter: 0
+            prog_counter: 0,
+            dinst: Dinst { op: 0, a: 0, b: 0, c: 0, val: 0}
         }
     }
-    pub fn allocate(&mut self, len: usize) -> usize {
+    fn allocate(&mut self, len: usize) -> usize {
         self.memory.allocate(len)
     }
-    pub fn deallocate(&mut self, id: usize) {
+    fn deallocate(&mut self, id: usize) {
         self.memory.deallocate(id)
     }
-    pub fn read(&mut self, register: Option<u32>) -> u32 {
+    fn read(&mut self, register: u32) -> u32 {
         self.registers.read(register)
     }
-    pub fn write(&mut self, val: u32, register: Option<u32>) {
+    fn write(&mut self, val: u32, register: u32) {
         self.registers.write(val, register)
     }
-    pub fn get(&mut self, id: u32, offset: u32) -> u32 {
+    fn get(&mut self, id: u32, offset: u32) -> u32 {
         self.memory.get(id, offset)
     }
     /// if $r[C] != 0 then $r[A] := $r[B]
-    pub fn cdmov(&mut self, inst: Dinst) {
+    fn cdmov(&mut self) {
 
         self.prog_counter += 1;
 
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
         if instc != 0 {
-            self.write(instb, inst.a)
+            self.write(instb, self.dinst.a)
         }
     }
     /// $r[A] := $m[$r[B]][$r[C]]
-    pub fn sload(&mut self, inst: Dinst) {
+    fn sload(&mut self) {
         
         self.prog_counter += 1;
 
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
         let got = self.get(instb, instc);
 
-        self.write(got, inst.a)
+        self.write(got, self.dinst.a)
     
     }
     /// $m[$r[A]][$r[B]] := $r[C]
-    pub fn store(&mut self, inst: Dinst) {
+    fn store(&mut self) {
 
         self.prog_counter += 1;
 
-        let insta = self.read(inst.a);
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let insta = self.read(self.dinst.a);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
 
         self.memory.set(insta, instb, instc)
     }
     /// $r[A] := ($r[B] + $r[C]) mod 2 ^ 32
-    pub fn add(&mut self, inst: Dinst) {
+    fn add(&mut self) {
         self.prog_counter += 1;
 
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
-        self.write(instb.wrapping_add(instc), inst.a)
+        self.write(instb.wrapping_add(instc), self.dinst.a)
     }
     /// $r[A] := ($r[B] × $r[C]) mod 2 ^ 32
-    pub fn mult(&mut self, inst: Dinst) {
+    fn mult(&mut self) {
         self.prog_counter += 1;
         
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
-        self.write(instb.wrapping_mul(instc), inst.a)
+        self.write(instb.wrapping_mul(instc), self.dinst.a)
     }
     /// $r[A] := ($r[B] ÷ $r[C]) (integer division)
-    pub fn div(&mut self, inst: Dinst) {
+    fn div(&mut self) {
         self.prog_counter += 1;
 
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
 
         if instc == 0 {
             panic!()
         } else {
-            self.write(instb.wrapping_div(instc), inst.a)
+            self.write(instb.wrapping_div(instc), self.dinst.a)
        }
     }
     /// $r[A] :=¬($r[B]∧$r[C])
-    pub fn nand(&mut self, inst: Dinst) {
+    fn nand(&mut self) {
         self.prog_counter += 1;
 
-        let instb = self.read(inst.b);
-        let instc = self.read(inst.c);
+        let instb = self.read(self.dinst.b);
+        let instc = self.read(self.dinst.c);
 
 
-        self.write(!(instb & instc), inst.a)
+        self.write(!(instb & instc), self.dinst.a)
     }
     /// Computation stops
-    pub fn halt(&mut self) {
+    fn halt(&mut self) {
         std::process::exit(0)
     }
     /// new segment is created with a number of words equal to the value in $r[C], 
     /// words  initialized to zero
     /// the new segment is mapped as $m[$r[B]].
     /// A bit pattern that is not all zeroes and does not identify any currently mapped segment is placed in $r[B]
-    pub fn map(&mut self, inst: Dinst) {
+    fn map(&mut self) {
         self.prog_counter += 1;
 
-        let instc = self.read(inst.c);
+        let instc = self.read(self.dinst.c);
 
         let allo_id = self.allocate(instc as usize) as u32;
-        self.write(allo_id, inst.b);
+        self.write(allo_id, self.dinst.b);
 
     }
     ///  The segment $m[$r[C]] is unmapped
     /// Future Map Segment instructions may reuse the identifier $r[C].
-    pub fn unmap(&mut self, inst: Dinst) {
+    fn unmap(&mut self) {
         self.prog_counter += 1;
 
-        let instc = self.read(inst.c);
+        let instc = self.read(self.dinst.c);
         self.deallocate(instc as usize)
     }
     /// The value in $r[C] is displayed on the I/O
     ///  Only values from 0 to 255 are allowed.
-    pub fn output(&mut self, inst: Dinst) {
+    fn output(&mut self) {
 
-        let instc = self.read(inst.c);
+        let instc = self.read(self.dinst.c);
 
         self.prog_counter += 1;
-        if fitsu(inst.c.unwrap() as u64, 8) {
+        if fitsu(self.dinst.c as u64, 8) {
             std::io::Write::write(&mut std::io::stdout(), &[instc as u8]).unwrap();
             
         } else {panic!()}
@@ -169,16 +173,16 @@ impl  UM {
     // $r[c] is loaded with the input
     // must be a value from 0 to 255
     // end of input has been signaled, $r[C] is loaded with a full 32-bit word in which every bit is 1
-    pub fn input(&mut self, inst: Dinst) {
+    fn input(&mut self) {
         self.prog_counter += 1;
 
         match std::io::stdin().bytes().next().unwrap().unwrap() {
             o  => {
                 if o as char == '\n' {
-                    self.write(std::u32::MAX, inst.c);
+                    self.write(std::u32::MAX, self.dinst.c);
                 }
                 else if fitsu(o.try_into().unwrap(), 8) {
-                    self.write(o.try_into().unwrap(), inst.c);
+                    self.write(o.try_into().unwrap(), self.dinst.c);
                 }
             }
 
@@ -187,11 +191,11 @@ impl  UM {
     ///  Segment $m[$r[B]] is duplicated
     /// m[0] = duplicate
     /// program counter points to r[c]
-    pub fn pload(&mut self, inst: Dinst) {
+    fn pload(&mut self) {
         self.prog_counter += 1;
 
-        let instb = self.read(inst.b) as usize;
-        let instc = self.read(inst.c) as usize;
+        let instb = self.read(self.dinst.b) as usize;
+        let instc = self.read(self.dinst.c) as usize;
         
         if instb != 0 {
             self.memory.segs[0] = self.memory.segs[instb].clone();
@@ -202,11 +206,95 @@ impl  UM {
         }
     }
     /// r[a] = Value
-    pub fn vload(&mut self, inst: Dinst) {
-
+    fn vload(&mut self) {
         self.prog_counter += 1;
 
-        self.write(inst.val.unwrap(), inst.a)
+        self.write(self.dinst.val, self.dinst.a)
     }
 
+    pub fn disassemble(&mut self) {
+        let inst = self.memory.get_i(self.prog_counter as u32);
+        self.dinst.op(&inst);
+
+        match self.dinst.op {
+            0 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.cdmov()
+            },
+            1 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.sload()
+            },
+            2 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.store()
+            },
+            3 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.add()
+            },
+            4 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.mult()
+            },
+            5 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.div()
+            },
+            6 => {
+                self.dinst.geta(&inst);
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.nand()
+            },
+            7 => {
+                self.halt()
+            },
+            8 => {
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.map()
+            },
+            9 => {
+                self.dinst.getc(&inst);
+                self.unmap()
+            },
+            10 => {
+                self.dinst.getc(&inst);
+                self.output()
+            },
+            11 => {
+                self.dinst.getc(&inst);
+                self.input()
+            },
+            12 => {
+                self.dinst.getb(&inst);
+                self.dinst.getc(&inst);
+                self.pload()
+            },
+            13 => {
+                self.dinst.geta2(&inst);
+                self.dinst.getv(&inst);
+                self.vload()
+            },
+            _ => {
+                panic!()
+            }
+        }
+    }
 }
+
+
+

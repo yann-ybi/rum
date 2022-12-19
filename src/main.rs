@@ -1,6 +1,5 @@
 mod machine;
 use crate::machine::machine::UM;
-use crate::machine::dinst::Dinst;
 use rum::rumload;
 
 fn main() {
@@ -13,7 +12,7 @@ fn main() {
     // let now = Instant::now();
     loop {
         // inst_numb += 1;
-        Dinst::disassemble(&mut machine);
+        machine.disassemble();
     }
 
 }
