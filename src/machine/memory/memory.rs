@@ -16,13 +16,13 @@ impl Memory {
             unmapped_segs: VecDeque::new()
         }
     }
-    pub fn get_i(&mut self, offset: usize) -> u32 {
+    pub fn get_i(&self, offset: usize) -> u32 {
         self.segs[0][offset]
     }
     
     /// return a word from the segmented memory based on its id and offset
     /// return None if no word found at that location
-    pub fn get(&mut self, id: u32, offset: u32) -> u32 {
+    pub fn get(&self, id: u32, offset: u32) -> u32 {
         self.segs[id as usize][offset as usize]
 
     }

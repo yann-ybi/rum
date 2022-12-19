@@ -11,5 +11,6 @@ pub fn load(input: Option<&str>) -> Vec<u32> {
     let instructions: Vec<u32> = buf.chunks_exact(4)
         .map(|x| u32::from_be_bytes(x.try_into().unwrap()))
         .collect();
+
     instructions
 }

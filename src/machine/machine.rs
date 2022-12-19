@@ -9,10 +9,10 @@ use crate::machine::dinst::{Dinst};
 
 /// Universal machine u32 bits structure containing, a memory, registers and a program counter
 pub struct UM {
-    pub registers: CPU,
-    pub memory: Memory,
-    pub prog_counter: usize,
-    pub dinst: Dinst,
+    registers: CPU,
+    memory: Memory,
+    prog_counter: usize,
+    dinst: Dinst,
 }
 
 impl  UM {
@@ -25,10 +25,10 @@ impl  UM {
             dinst: Dinst { op: 0, a: 0, b: 0, c: 0, val: 0}
         }
     }
-    pub fn get_i(&mut self, offset: usize) -> u32 {
+    fn get_i(&self, offset: usize) -> u32 {
         self.memory.get_i(offset)
     }
-    pub fn op(&mut self, instruction: &u32) {
+    fn op(&mut self, instruction: &u32) {
         self.dinst.op(instruction);
     }
     fn allocate(&mut self, len: usize) -> usize {
@@ -37,13 +37,13 @@ impl  UM {
     fn deallocate(&mut self, id: usize) {
         self.memory.deallocate(id)
     }
-    fn read(&mut self, register: u32) -> u32 {
+    fn read(&self, register: u32) -> u32 {
         self.registers.read(register)
     }
     fn write(&mut self, val: u32, register: u32) {
         self.registers.write(val, register)
     }
-    fn get(&mut self, id: u32, offset: u32) -> u32 {
+    fn get(&self, id: u32, offset: u32) -> u32 {
         self.memory.get(id, offset)
     }
     /// if $r[C] != 0 then $r[A] := $r[B]
@@ -120,7 +120,7 @@ impl  UM {
         self.write(!(instb & instc), self.dinst.a)
     }
     /// Computation stops
-    fn halt(&mut self) {
+    fn halt(&self) {
         std::process::exit(0)
     }
     /// new segment is created with a number of words equal to the value in $r[C], 
@@ -146,11 +146,8 @@ impl  UM {
     }
     /// The value in $r[C] is displayed on the I/O
     ///  Only values from 0 to 255 are allowed.
-    fn output(&mut self) {
-
+    fn output(&self) {
         let instc = self.read(self.dinst.c);
-
-        self.prog_counter += 1;
         std::io::Write::write(&mut std::io::stdout(), &[instc as u8]).unwrap();
     }
     ///  UM waits for input on the I/O device
@@ -256,6 +253,7 @@ impl  UM {
                 self.unmap()
             },
             10 => {
+                self.prog_counter += 1;
                 self.dinst.getc(&inst);
                 self.output()
             },
