@@ -171,13 +171,17 @@ impl  UM {
     /// program counter points to r[c]
     pub fn pload(&mut self, inst: Dinst) -> Result<(), MachError> {
         self.advance_pcounter();
-        match *(self.memory.segs[self.registers.read(inst.b) as usize]).clone() {
-            Some(_) => Ok({
-                let duplicate = Box::new(*(self.memory.segs[self.registers.read(inst.b) as usize]).clone());
-                self.memory.segs[0] = duplicate;
-                self.set_pcounter( self.registers.read(inst.c)).unwrap();
-            }),
-            None => {Err(MachError::NotFoundLoadProgramSegment)},
+        if self.registers.read(inst.b) != 0 {
+            match *(self.memory.segs[self.registers.read(inst.b) as usize]).clone() {
+                Some(_) => Ok({
+                    let duplicate = Box::new(*(self.memory.segs[self.registers.read(inst.b) as usize]).clone());
+                    self.memory.segs[0] = duplicate;
+                    self.set_pcounter( self.registers.read(inst.c)).unwrap();
+                }),
+                None => {Err(MachError::NotFoundLoadProgramSegment)},
+            }
+        } else {
+            Ok(self.set_pcounter( self.registers.read(inst.c)).unwrap())
         }
     }
     /// r[a] = Value
