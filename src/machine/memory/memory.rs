@@ -1,21 +1,21 @@
-use std::{collections::VecDeque, usize, vec};
+use std::{usize, vec};
 
 /// Memory structure of the UM machine
 pub struct Memory {
-    seg0: Vec<u32>,
+    seg0: Box<[u32]>,
     // segmented memory
     pub segs: Vec<Vec<u32>>,
     // unmapped segments ready to be mapped again
-    pub unmapped_segs: VecDeque<usize>
+    pub unmapped_segs: Vec<usize>
 }
 impl Memory {
     /// Memory constructor function
     pub fn new(instructions: Vec<u32>) -> Self {
 
         Memory {
-            seg0: instructions,
+            seg0: instructions.into_boxed_slice(),
             segs: Vec::new(),
-            unmapped_segs: VecDeque::new()
+            unmapped_segs: Vec::new()
         }
     }
     /// return a word from the segmented memory based on its id and offset
@@ -39,7 +39,7 @@ impl Memory {
     pub fn allocate(&mut self, len: usize) -> usize {
         let new_seg: Vec<u32> = vec![0_u32; len];
 
-        match self.unmapped_segs.pop_front() {
+        match self.unmapped_segs.pop() {
             Some(o) => {
                 self.segs[o] = new_seg;
                 o
@@ -52,7 +52,7 @@ impl Memory {
     }
     pub fn deallocate(&mut self, id: usize) {
         self.segs[id] = Vec::new();
-        self.unmapped_segs.push_back(id)
+        self.unmapped_segs.push(id)
     }
 
 
