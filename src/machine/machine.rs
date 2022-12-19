@@ -40,17 +40,25 @@ impl  UM {
     pub fn deallocate(&mut self, id: usize) {
         self.memory.deallocate(id)
     }
-    
+    pub fn read(&mut self, register: Option<u32>) -> u32 {
+        self.registers.read(register)
+    }
+    pub fn write(&mut self, val: u32, register: Option<u32>) {
+        self.registers.write(val, register)
+    }
+    pub fn get(&mut self, id: u32, offset: u32) -> u32 {
+        self.memory.get(id, offset)
+    }
     /// if $r[C] != 0 then $r[A] := $r[B]
     pub fn cdmov(&mut self, inst: Dinst) {
 
         self.prog_counter += 1;
 
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
         if instc != 0 {
-            self.registers.write(instb, inst.a)
+            self.write(instb, inst.a)
         }
     }
     /// $r[A] := $m[$r[B]][$r[C]]
@@ -58,10 +66,12 @@ impl  UM {
         
         self.prog_counter += 1;
 
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
-        self.registers.write(self.memory.get(instb, instc), inst.a)
+        let got = self.get(instb, instc);
+
+        self.write(got, inst.a)
     
     }
     /// $m[$r[A]][$r[B]] := $r[C]
@@ -69,9 +79,9 @@ impl  UM {
 
         self.prog_counter += 1;
 
-        let insta = self.registers.read(inst.a);
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let insta = self.read(inst.a);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
 
         self.memory.set(insta, instb, instc)
@@ -80,43 +90,43 @@ impl  UM {
     pub fn add(&mut self, inst: Dinst) {
         self.prog_counter += 1;
 
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
-        self.registers.write(instb.wrapping_add(instc), inst.a)
+        self.write(instb.wrapping_add(instc), inst.a)
     }
     /// $r[A] := ($r[B] × $r[C]) mod 2 ^ 32
     pub fn mult(&mut self, inst: Dinst) {
         self.prog_counter += 1;
         
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
-        self.registers.write(instb.wrapping_mul(instc), inst.a)
+        self.write(instb.wrapping_mul(instc), inst.a)
     }
     /// $r[A] := ($r[B] ÷ $r[C]) (integer division)
     pub fn div(&mut self, inst: Dinst) {
         self.prog_counter += 1;
 
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
 
         if instc == 0 {
             panic!()
         } else {
-            self.registers.write(instb.wrapping_div(instc), inst.a)
+            self.write(instb.wrapping_div(instc), inst.a)
        }
     }
     /// $r[A] :=¬($r[B]∧$r[C])
     pub fn nand(&mut self, inst: Dinst) {
         self.prog_counter += 1;
 
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b);
+        let instc = self.read(inst.c);
 
 
-        self.registers.write(!(instb & instc), inst.a)
+        self.write(!(instb & instc), inst.a)
     }
     /// Computation stops
     pub fn halt(&mut self) {
@@ -129,10 +139,10 @@ impl  UM {
     pub fn map(&mut self, inst: Dinst) {
         self.prog_counter += 1;
 
-        let instc = self.registers.read(inst.c);
+        let instc = self.read(inst.c);
 
         let allo_id = self.allocate(instc as usize) as u32;
-        self.registers.write(allo_id, inst.b);
+        self.write(allo_id, inst.b);
 
     }
     ///  The segment $m[$r[C]] is unmapped
@@ -140,14 +150,14 @@ impl  UM {
     pub fn unmap(&mut self, inst: Dinst) {
         self.prog_counter += 1;
 
-        let instc = self.registers.read(inst.c);
+        let instc = self.read(inst.c);
         self.deallocate(instc as usize)
     }
     /// The value in $r[C] is displayed on the I/O
     ///  Only values from 0 to 255 are allowed.
     pub fn output(&mut self, inst: Dinst) {
 
-        let instc = self.registers.read(inst.c);
+        let instc = self.read(inst.c);
 
         self.prog_counter += 1;
         if fitsu(inst.c.unwrap() as u64, 8) {
@@ -165,10 +175,10 @@ impl  UM {
         match std::io::stdin().bytes().next().unwrap().unwrap() {
             o  => {
                 if o as char == '\n' {
-                    self.registers.write(std::u32::MAX, inst.c);
+                    self.write(std::u32::MAX, inst.c);
                 }
                 else if fitsu(o.try_into().unwrap(), 8) {
-                    self.registers.write(o.try_into().unwrap(), inst.c);
+                    self.write(o.try_into().unwrap(), inst.c);
                 }
             }
 
@@ -180,20 +190,15 @@ impl  UM {
     pub fn pload(&mut self, inst: Dinst) {
         self.prog_counter += 1;
 
-        let instb = self.registers.read(inst.b);
-        let instc = self.registers.read(inst.c);
+        let instb = self.read(inst.b) as usize;
+        let instc = self.read(inst.c) as usize;
         
-        if self.registers.read(inst.b) != 0 {
-            if (self.memory.segs[instb as usize]).clone() != Vec::new(){
+        if instb != 0 {
+            self.memory.segs[0] = self.memory.segs[instb].clone();
+            self.prog_counter = instc;
 
-                    let duplicate = self.memory.segs[instb as usize].clone();
-                    self.memory.segs[0] = duplicate;
-                    self.prog_counter = instc as usize;
-                
-            }
-            else {panic!()}
         } else {
-            self.prog_counter = instc as usize;
+            self.prog_counter = instc;
         }
     }
     /// r[a] = Value
@@ -201,7 +206,7 @@ impl  UM {
 
         self.prog_counter += 1;
 
-        self.registers.write(inst.val.unwrap(), inst.a)
+        self.write(inst.val.unwrap(), inst.a)
     }
 
 }
