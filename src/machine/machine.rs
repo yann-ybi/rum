@@ -7,25 +7,12 @@ use crate::machine::memory::memory::{Memory};
 use crate::machine::dinst::{Dinst};
 
 
-/// Returns true iff the unsigned value `n` fits into `width` unsigned bits.
-/// 
-/// # Arguments:
-/// * `n`: An usigned integer value
-/// * `width`: the width of a bit field
-pub fn fitsu(n: u64, width: u64) -> bool {
-    let range = 1 << width;
-    if  n < range {
-        true
-    } else{false}
-}
-
 /// Universal machine u32 bits structure containing, a memory, registers and a program counter
 pub struct UM {
     pub registers: CPU,
     pub memory: Memory,
     pub prog_counter: usize,
-    pub dinst: Dinst
-    
+    pub dinst: Dinst,
 }
 
 impl  UM {
@@ -37,6 +24,12 @@ impl  UM {
             prog_counter: 0,
             dinst: Dinst { op: 0, a: 0, b: 0, c: 0, val: 0}
         }
+    }
+    pub fn get_i(&mut self, offset: usize) -> u32 {
+        self.memory.get_i(offset)
+    }
+    pub fn op(&mut self, instruction: &u32) {
+        self.dinst.op(instruction);
     }
     fn allocate(&mut self, len: usize) -> usize {
         self.memory.allocate(len)
@@ -115,12 +108,7 @@ impl  UM {
         let instb = self.read(self.dinst.b);
         let instc = self.read(self.dinst.c);
 
-
-        if instc == 0 {
-            panic!()
-        } else {
-            self.write(instb.wrapping_div(instc), self.dinst.a)
-       }
+        self.write(instb.wrapping_div(instc), self.dinst.a)
     }
     /// $r[A] :=¬($r[B]∧$r[C])
     fn nand(&mut self) {
@@ -128,7 +116,6 @@ impl  UM {
 
         let instb = self.read(self.dinst.b);
         let instc = self.read(self.dinst.c);
-
 
         self.write(!(instb & instc), self.dinst.a)
     }
@@ -164,10 +151,7 @@ impl  UM {
         let instc = self.read(self.dinst.c);
 
         self.prog_counter += 1;
-        if fitsu(self.dinst.c as u64, 8) {
-            std::io::Write::write(&mut std::io::stdout(), &[instc as u8]).unwrap();
-            
-        } else {panic!()}
+        std::io::Write::write(&mut std::io::stdout(), &[instc as u8]).unwrap();
     }
     ///  UM waits for input on the I/O device
     // $r[c] is loaded with the input
@@ -181,7 +165,7 @@ impl  UM {
                 if o as char == '\n' {
                     self.write(std::u32::MAX, self.dinst.c);
                 }
-                else if fitsu(o.try_into().unwrap(), 8) {
+                else {
                     self.write(o.try_into().unwrap(), self.dinst.c);
                 }
             }
@@ -213,8 +197,8 @@ impl  UM {
     }
 
     pub fn disassemble(&mut self) {
-        let inst = self.memory.get_i(self.prog_counter as u32);
-        self.dinst.op(&inst);
+        let inst = self.get_i(self.prog_counter);
+        self.op(&inst);
 
         match self.dinst.op {
             0 => {

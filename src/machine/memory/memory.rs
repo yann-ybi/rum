@@ -16,14 +16,13 @@ impl Memory {
             unmapped_segs: VecDeque::new()
         }
     }
-    pub fn get_i(&mut self, offset: u32) -> u32 {
-        self.segs[0][offset as usize]
-
+    pub fn get_i(&mut self, offset: usize) -> u32 {
+        self.segs[0][offset]
     }
+    
     /// return a word from the segmented memory based on its id and offset
     /// return None if no word found at that location
     pub fn get(&mut self, id: u32, offset: u32) -> u32 {
-
         self.segs[id as usize][offset as usize]
 
     }
@@ -36,7 +35,7 @@ impl Memory {
     }
     pub fn allocate(&mut self, len: usize) -> usize {
         let new_seg: Vec<u32> = vec![0_u32; len];
-
+        
         match self.unmapped_segs.pop_front() {
             Some(o) => {
                 self.segs[o] = new_seg;

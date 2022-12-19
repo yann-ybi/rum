@@ -29,9 +29,7 @@ pub struct Dinst {
 impl Dinst {
 
     /// returns a u32 bit word based on its field from an instruction word
-    pub fn get(field: &Field, instruction: &u32) -> u32 {
-        (instruction >> field.lsb) & mask(field.width)
-    }
+
     pub fn geta(&mut self, instruction: &u32) {
         self.a = (instruction >> RA.lsb) & ((1 << RA.width) - 1)
     }
