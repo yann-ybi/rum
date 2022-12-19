@@ -110,11 +110,11 @@ impl  UM {
         match self.memory.unmapped_segs.pop_front() {
             Some(o) => {
                 self.registers.write(o as u32, inst.b);
-                self.memory.segs[o] = Box::new(Some(new_seg));
+                self.memory.segs[o] = new_seg;
             },
             None => {
                 self.registers.write(self.memory.segs.len() as u32, inst.b);
-                self.memory.segs.push(Box::new(Some(new_seg)));
+                self.memory.segs.push(new_seg);
             }
         }
     }
@@ -126,13 +126,12 @@ impl  UM {
         if self.registers.read(inst.c) == 0 {
             Err(MachError::NotFoundUnmapSegment)
         }else {
-            match *self.memory.segs[self.registers.read(inst.c) as usize] {
-                None => Err(MachError::NotFoundUnmapSegment),
-                Some(_) => Ok({
-                    self.memory.segs[self.registers.read(inst.c) as usize] = Box::new(None);
-                    self.memory.unmapped_segs.push_back(self.registers.read(inst.c) as usize);
-                }),
-            }
+            if self.memory.segs[self.registers.read(inst.c) as usize] == Vec::new() {
+                Err(MachError::NotFoundUnmapSegment)}
+            else{ Ok({
+                self.memory.segs[self.registers.read(inst.c) as usize] = Vec::new();
+                self.memory.unmapped_segs.push_back(self.registers.read(inst.c) as usize);
+            })}
         }
     }
     /// The value in $r[C] is displayed on the I/O
@@ -171,15 +170,16 @@ impl  UM {
     /// program counter points to r[c]
     pub fn pload(&mut self, inst: Dinst) -> Result<(), MachError> {
         self.advance_pcounter();
+        
         if self.registers.read(inst.b) != 0 {
-            match *(self.memory.segs[self.registers.read(inst.b) as usize]).clone() {
-                Some(_) => Ok({
-                    let duplicate = Box::new(*(self.memory.segs[self.registers.read(inst.b) as usize]).clone());
+            if (self.memory.segs[self.registers.read(inst.b) as usize]).clone() != Vec::new(){
+
+                    let duplicate = self.memory.segs[self.registers.read(inst.b) as usize].clone();
                     self.memory.segs[0] = duplicate;
                     self.set_pcounter( self.registers.read(inst.c)).unwrap();
-                }),
-                None => {Err(MachError::NotFoundLoadProgramSegment)},
+                Ok(())
             }
+            else {Err(MachError::NotFoundLoadProgramSegment)}
         } else {
             Ok(self.set_pcounter( self.registers.read(inst.c)).unwrap())
         }
