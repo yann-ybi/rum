@@ -1,10 +1,10 @@
 
+use core::panic;
 use std::io::Read;
 
-use crate::machine::registers::registers::*;
-use crate::machine::memory::memory::*;
+use crate::machine::registers::registers::{CPU};
+use crate::machine::memory::memory::{Memory};
 use crate::machine::dinst::{Dinst};
-use crate::machine::error::*;
 
 /// Returns true iff the unsigned value `n` fits into `width` unsigned bits.
 /// 
@@ -34,66 +34,89 @@ impl  UM {
             prog_counter: 0
         }
     }
-    /// counter points to an memory location based on an offset at id 0
-    pub fn set_pcounter(&mut self, offset: u32) -> Result<(), MachError>  {
-        self.prog_counter = offset as usize;
-        Ok(())
+    pub fn allocate(&mut self, len: usize) -> usize {
+        self.memory.allocate(len)
     }
-    pub fn advance_pcounter(&mut self) {
-        self.prog_counter += 1;
+    pub fn deallocate(&mut self, id: usize) {
+        self.memory.deallocate(id)
     }
     
     /// if $r[C] != 0 then $r[A] := $r[B]
     pub fn cdmov(&mut self, inst: Dinst) {
-        self.advance_pcounter();
-        if self.registers.read(inst.c) != 0 {
-            self.registers.write(self.registers.read(inst.b), inst.a)
+
+        self.prog_counter += 1;
+
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+        if instc != 0 {
+            self.registers.write(instb, inst.a)
         }
     }
     /// $r[A] := $m[$r[B]][$r[C]]
-    pub fn sload(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
+    pub fn sload(&mut self, inst: Dinst) {
+        
+        self.prog_counter += 1;
 
-        match self.memory.get(self.registers.read(inst.b), self.registers.read(inst.c)) {
-            Some(o) => Ok ({
-                self.registers.write(o, inst.a)
-            }),
-            None => Err(MachError::LoadSegmentFailed),
-        }
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+        self.registers.write(self.memory.get(instb, instc), inst.a)
+    
     }
     /// $m[$r[A]][$r[B]] := $r[C]
-    pub fn store(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
+    pub fn store(&mut self, inst: Dinst) {
 
-        match self.memory.set(self.registers.read(inst.a), self.registers.read(inst.b), self.registers.read(inst.c)) {
-            Some(_) => Ok(()),
-            None => Err(MachError::StoreSegmentFailed),
-        }
+        self.prog_counter += 1;
 
+        let insta = self.registers.read(inst.a);
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+
+        self.memory.set(insta, instb, instc)
     }
     /// $r[A] := ($r[B] + $r[C]) mod 2 ^ 32
     pub fn add(&mut self, inst: Dinst) {
-        self.advance_pcounter();
-        self.registers.write(self.registers.read(inst.b).wrapping_add(self.registers.read(inst.c)), inst.a)
+        self.prog_counter += 1;
+
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+        self.registers.write(instb.wrapping_add(instc), inst.a)
     }
     /// $r[A] := ($r[B] × $r[C]) mod 2 ^ 32
     pub fn mult(&mut self, inst: Dinst) {
-        self.advance_pcounter();
-        self.registers.write(self.registers.read(inst.b).wrapping_mul(self.registers.read(inst.c)), inst.a)
+        self.prog_counter += 1;
+        
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+        self.registers.write(instb.wrapping_mul(instc), inst.a)
     }
     /// $r[A] := ($r[B] ÷ $r[C]) (integer division)
-    pub fn div(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
-        if self.registers.read(inst.c) == 0 {
-            Err(MachError::DivisionByZero)
+    pub fn div(&mut self, inst: Dinst) {
+        self.prog_counter += 1;
+
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+
+        if instc == 0 {
+            panic!()
         } else {
-            Ok(self.registers.write(self.registers.read(inst.b).wrapping_div(self.registers.read(inst.c)), inst.a))
+            self.registers.write(instb.wrapping_div(instc), inst.a)
        }
     }
     /// $r[A] :=¬($r[B]∧$r[C])
     pub fn nand(&mut self, inst: Dinst) {
-        self.advance_pcounter();
-        self.registers.write(!(self.registers.read(inst.b) & self.registers.read(inst.c)), inst.a)
+        self.prog_counter += 1;
+
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
+
+
+        self.registers.write(!(instb & instc), inst.a)
     }
     /// Computation stops
     pub fn halt(&mut self) {
@@ -104,89 +127,80 @@ impl  UM {
     /// the new segment is mapped as $m[$r[B]].
     /// A bit pattern that is not all zeroes and does not identify any currently mapped segment is placed in $r[B]
     pub fn map(&mut self, inst: Dinst) {
-        self.advance_pcounter();
-        let new_seg: Vec<u32> = vec![0_u32; self.registers.read(inst.c) as usize];
-        
-        match self.memory.unmapped_segs.pop_front() {
-            Some(o) => {
-                self.registers.write(o as u32, inst.b);
-                self.memory.segs[o] = new_seg;
-            },
-            None => {
-                self.registers.write(self.memory.segs.len() as u32, inst.b);
-                self.memory.segs.push(new_seg);
-            }
-        }
+        self.prog_counter += 1;
+
+        let instc = self.registers.read(inst.c);
+
+        let allo_id = self.allocate(instc as usize) as u32;
+        self.registers.write(allo_id, inst.b);
+
     }
     ///  The segment $m[$r[C]] is unmapped
     /// Future Map Segment instructions may reuse the identifier $r[C].
-    pub fn unmap(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
+    pub fn unmap(&mut self, inst: Dinst) {
+        self.prog_counter += 1;
 
-        if self.registers.read(inst.c) == 0 {
-            Err(MachError::NotFoundUnmapSegment)
-        }else {
-            if self.memory.segs[self.registers.read(inst.c) as usize] == Vec::new() {
-                Err(MachError::NotFoundUnmapSegment)}
-            else{ Ok({
-                self.memory.segs[self.registers.read(inst.c) as usize] = Vec::new();
-                self.memory.unmapped_segs.push_back(self.registers.read(inst.c) as usize);
-            })}
-        }
+        let instc = self.registers.read(inst.c);
+        self.deallocate(instc as usize)
     }
     /// The value in $r[C] is displayed on the I/O
     ///  Only values from 0 to 255 are allowed.
-    pub fn output(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
+    pub fn output(&mut self, inst: Dinst) {
+
+        let instc = self.registers.read(inst.c);
+
+        self.prog_counter += 1;
         if fitsu(inst.c.unwrap() as u64, 8) {
-            std::io::Write::write(&mut std::io::stdout(), &[self.registers.read(inst.c) as u8]).unwrap();
-            Ok(())
-        } else {Err(MachError::UnvalidOutput)}
+            std::io::Write::write(&mut std::io::stdout(), &[instc as u8]).unwrap();
+            
+        } else {panic!()}
     }
     ///  UM waits for input on the I/O device
     // $r[c] is loaded with the input
     // must be a value from 0 to 255
     // end of input has been signaled, $r[C] is loaded with a full 32-bit word in which every bit is 1
-    pub fn input(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
-        match std::io::stdin().bytes().next().unwrap() {
-            Ok(o)  => {
+    pub fn input(&mut self, inst: Dinst) {
+        self.prog_counter += 1;
+
+        match std::io::stdin().bytes().next().unwrap().unwrap() {
+            o  => {
                 if o as char == '\n' {
-                    Ok(self.registers.write(std::u32::MAX, inst.c))
+                    self.registers.write(std::u32::MAX, inst.c);
                 }
                 else if fitsu(o.try_into().unwrap(), 8) {
-                    Ok(self.registers.write(o.try_into().unwrap(), inst.c))
-                }else {
-                    Err(MachError::UnvalidInput)
+                    self.registers.write(o.try_into().unwrap(), inst.c);
                 }
             }
-            Err(_) => {
-                Err(MachError::UnvalidInput)
-            }
+
         } 
     }
     ///  Segment $m[$r[B]] is duplicated
     /// m[0] = duplicate
     /// program counter points to r[c]
-    pub fn pload(&mut self, inst: Dinst) -> Result<(), MachError> {
-        self.advance_pcounter();
+    pub fn pload(&mut self, inst: Dinst) {
+        self.prog_counter += 1;
+
+        let instb = self.registers.read(inst.b);
+        let instc = self.registers.read(inst.c);
         
         if self.registers.read(inst.b) != 0 {
-            if (self.memory.segs[self.registers.read(inst.b) as usize]).clone() != Vec::new(){
+            if (self.memory.segs[instb as usize]).clone() != Vec::new(){
 
-                    let duplicate = self.memory.segs[self.registers.read(inst.b) as usize].clone();
+                    let duplicate = self.memory.segs[instb as usize].clone();
                     self.memory.segs[0] = duplicate;
-                    self.set_pcounter( self.registers.read(inst.c)).unwrap();
-                Ok(())
+                    self.prog_counter = instc as usize;
+                
             }
-            else {Err(MachError::NotFoundLoadProgramSegment)}
+            else {panic!()}
         } else {
-            Ok(self.set_pcounter( self.registers.read(inst.c)).unwrap())
+            self.prog_counter = instc as usize;
         }
     }
     /// r[a] = Value
     pub fn vload(&mut self, inst: Dinst) {
-        self.advance_pcounter();
+
+        self.prog_counter += 1;
+
         self.registers.write(inst.val.unwrap(), inst.a)
     }
 

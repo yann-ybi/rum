@@ -41,7 +41,7 @@ pub struct Dinst {
 impl Dinst {
     // parse an instruction with the op, a, b, c, val, makes a Dinst struct out of it and calls the appropiate machine function for execution
     pub fn disassemble(machine: &mut UM) {
-        let inst = machine.memory.get(0_u32, machine.prog_counter as u32).unwrap();
+        let inst = machine.memory.get(0_u32, machine.prog_counter as u32);
         match op( inst) {
             0 => {
                 machine.cdmov(Dinst {
@@ -51,12 +51,12 @@ impl Dinst {
             1 => {
                 machine.sload(Dinst {
                     op: 1, a: get(&RA, inst), b: get(&RB, inst), c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             2 => {
                 machine.store(Dinst {
                     op: 2, a: get(&RA, inst), b: get(&RB, inst), c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             3 => {
                 machine.add(Dinst {
@@ -71,7 +71,7 @@ impl Dinst {
             5 => {
                 machine.div(Dinst {
                     op: 5, a: get(&RA, inst), b: get(&RB, inst), c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             6 => {
                 machine.nand(Dinst {
@@ -89,22 +89,22 @@ impl Dinst {
             9 => {
                 machine.unmap(Dinst {
                     op: 9, a: None, b: None, c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             10 => {
                 machine.output(Dinst {
                     op: 10, a: None, b: None, c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             11 => {
                 machine.input(Dinst {
                     op: 11, a: None, b: None, c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             12 => {
                 machine.pload(Dinst {
                     op: 12, a: None, b: get(&RB, inst), c: get(&RC, inst), val: None
-                }).unwrap()
+                })
             },
             13 => {
                 machine.vload(Dinst {
