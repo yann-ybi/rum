@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../rumdump"
+		},
+		{
+			"path": "../../../arith/array2"
+		},
+		{
+			"path": "../../../arith/bitpack"
+		}
+	]
+}
